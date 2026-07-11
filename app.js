@@ -1398,7 +1398,7 @@ function generate24HourPDF() {
 
   doc.text(`CNG RATE: ${rateStr}`, 20, 48);
   doc.text(`GENERATED AT: ${new Date().toLocaleTimeString()}`, 110, 48);
-  doc.text(`SHIFTS RECORDED: ${dayShift ? '🌞 DAY' : ''} ${nightShift ? '🌙 NIGHT' : ''}`, 110, 42);
+  doc.text(`SHIFTS RECORDED: ${dayShift ? 'DAY' : ''} ${nightShift ? 'NIGHT' : ''}`, 110, 42);
 
   // 1. COMBINED NOZZLE SALES TABLE
   let startY = 60;
@@ -1412,7 +1412,7 @@ function generate24HourPDF() {
   doc.text('Day Sale (Kg)', 65, startY + 5);
   doc.text('Night Sale (Kg)', 100, startY + 5);
   doc.text('Total Sale (Kg)', 135, startY + 5);
-  doc.text('Total Amount (₹)', 165, startY + 5);
+  doc.text('Total Amount (Rs)', 165, startY + 5);
 
   let currentY = startY + 7;
   doc.setTextColor(0, 0, 0);
@@ -1483,12 +1483,16 @@ function generate24HourPDF() {
   const allSalesmen = [];
   if (dayShift && dayShift.salesmanEntries) {
     dayShift.salesmanEntries.forEach(s => {
-      allSalesmen.push({ ...s, shift: '🌞 Day' });
+      const assignedIndices = getAssignedNozzleIndices('Day', s.salesmanIndex);
+      const nozzleLabels = assignedIndices.map(idx => state.nozzles[idx] || `Nozzle ${idx + 1}`).join(', ');
+      allSalesmen.push({ ...s, shift: 'Day', nozzles: nozzleLabels });
     });
   }
   if (nightShift && nightShift.salesmanEntries) {
     nightShift.salesmanEntries.forEach(s => {
-      allSalesmen.push({ ...s, shift: '🌙 Night' });
+      const assignedIndices = getAssignedNozzleIndices('Night', s.salesmanIndex);
+      const nozzleLabels = assignedIndices.map(idx => state.nozzles[idx] || `Nozzle ${idx + 1}`).join(', ');
+      allSalesmen.push({ ...s, shift: 'Night', nozzles: nozzleLabels });
     });
   }
 
@@ -1502,7 +1506,7 @@ function generate24HourPDF() {
 
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8.5);
-    doc.text(`${s.shift} - ${s.name}`, 18, currentY + 4);
+    doc.text(`${s.shift} - ${s.salesmanName || 'N/A'}`, 18, currentY + 4);
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(7);
     doc.text(`(${s.nozzles || ''})`, 18, currentY + 8);
@@ -1539,9 +1543,9 @@ function generate24HourPDF() {
   // Totals Summary Box
   currentY += 4;
   doc.setFillColor(240, 248, 240);
-  doc.rect(15, currentY, 180, 22, 'F');
+  doc.rect(15, currentY, 180, 26, 'F');
   doc.setDrawColor(0, 150, 136);
-  doc.rect(15, currentY, 180, 22, 'S');
+  doc.rect(15, currentY, 180, 26, 'S');
 
   doc.setTextColor(0, 0, 0);
   doc.setFont('Helvetica', 'bold');
@@ -1550,21 +1554,26 @@ function generate24HourPDF() {
   doc.line(20, currentY + 7, 190, currentY + 7);
 
   doc.setFont('Helvetica', 'normal');
+  
+  // Line 1
   doc.text(`Total Sales: Rs. ${grandNozzleSaleAmt.toFixed(2)}`, 20, currentY + 12);
-  doc.text(`Total Sales (Kg): ${grandNozzleSaleKg.toFixed(2)} Kg`, 20, currentY + 17);
+  doc.text(`Digital: Rs. ${(totalCard + totalUpi).toFixed(2)}`, 85, currentY + 12);
+  doc.text(`Cash Collect: Rs. ${totalCashToCollect.toFixed(2)}`, 140, currentY + 12);
+  
+  // Line 2
+  doc.text(`Total Sales (Kg): ${grandNozzleSaleKg.toFixed(2)} Kg`, 20, currentY + 18);
+  doc.text(`(Card: Rs. ${totalCard} | UPI: Rs. ${totalUpi})`, 85, currentY + 18);
+  doc.text(`Cash Recd: Rs. ${totalCashRecd.toFixed(2)}`, 140, currentY + 18);
 
-  doc.text(`Digital: Rs. ${(totalCard + totalUpi).toFixed(2)} (Card:${totalCard} UPI:${totalUpi})`, 90, currentY + 12);
-  doc.text(`Cash Collect: Rs. ${totalCashToCollect.toFixed(2)}`, 90, currentY + 17);
-  doc.text(`Cash Recd: Rs. ${totalCashRecd.toFixed(2)}`, 142, currentY + 12);
-
+  // Line 3
   doc.setFont('Helvetica', 'bold');
-  doc.text(`Net Diff:`, 142, currentY + 17);
+  doc.text(`Net Diff:`, 140, currentY + 23);
   if (totalDiff >= 0) {
     doc.setTextColor(0, 120, 0);
-    doc.text(`+${totalDiff.toFixed(2)}`, 158, currentY + 17);
+    doc.text(`+${totalDiff.toFixed(2)}`, 158, currentY + 23);
   } else {
     doc.setTextColor(200, 0, 0);
-    doc.text(`${totalDiff.toFixed(2)}`, 158, currentY + 17);
+    doc.text(`${totalDiff.toFixed(2)}`, 158, currentY + 23);
   }
   doc.setTextColor(0, 0, 0);
 
@@ -1578,7 +1587,7 @@ function generate24HourPDF() {
   }
   
   if (remarksText) {
-    currentY += 28;
+    currentY += 32;
     doc.setTextColor(100, 100, 100);
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(9);
