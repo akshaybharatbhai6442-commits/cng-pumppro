@@ -478,6 +478,8 @@ function renderSalesmanEntries(loadedSalesmanEntries = null) {
 
   for (let i = 0; i < count; i++) {
     const assignedIndices = getAssignedNozzleIndices(shiftType, i);
+    if (assignedIndices.length === 0) continue; // Skip rendering if no nozzles assigned
+
     const nozzleLabels = assignedIndices.map(idx => state.nozzles[idx] || `Nozzle ${idx + 1}`).join(', ');
 
     let selectedStaffName = '';
@@ -485,11 +487,12 @@ function renderSalesmanEntries(loadedSalesmanEntries = null) {
     let upiVal = '';
     let cashRecdVal = '';
 
-    if (loadedSalesmanEntries && loadedSalesmanEntries[i]) {
-      selectedStaffName = loadedSalesmanEntries[i].salesmanName;
-      cardVal = loadedSalesmanEntries[i].card !== undefined ? loadedSalesmanEntries[i].card : '';
-      upiVal = loadedSalesmanEntries[i].upi !== undefined ? loadedSalesmanEntries[i].upi : '';
-      cashRecdVal = loadedSalesmanEntries[i].cashReceived !== undefined ? loadedSalesmanEntries[i].cashReceived : '';
+    const entry = loadedSalesmanEntries ? (loadedSalesmanEntries.find(e => e.salesmanIndex === i) || loadedSalesmanEntries[i]) : null;
+    if (entry) {
+      selectedStaffName = entry.salesmanName || '';
+      cardVal = entry.card !== undefined ? entry.card : '';
+      upiVal = entry.upi !== undefined ? entry.upi : '';
+      cashRecdVal = entry.cashReceived !== undefined ? entry.cashReceived : '';
     }
 
     let staffOptions = '<option value="">-- Select Salesman --</option>';
@@ -574,9 +577,6 @@ function recalculateAll() {
   }
 
   const salesmanCount = 5;
-  const cardInputs = document.querySelectorAll('.salesman-card');
-  const upiInputs = document.querySelectorAll('.salesman-upi');
-  const cashInputs = document.querySelectorAll('.salesman-cash');
 
   for (let i = 0; i < salesmanCount; i++) {
     const assignedIndices = getAssignedNozzleIndices(shiftType, i);
@@ -590,9 +590,13 @@ function recalculateAll() {
       }
     });
 
-    const card = parseFloat(cardInputs[i]?.value) || 0;
-    const upi = parseFloat(upiInputs[i]?.value) || 0;
-    const cashRecd = parseFloat(cashInputs[i]?.value) || 0;
+    const cardEl = document.querySelector(`.salesman-card[data-idx="${i}"]`);
+    const upiEl = document.querySelector(`.salesman-upi[data-idx="${i}"]`);
+    const cashEl = document.querySelector(`.salesman-cash[data-idx="${i}"]`);
+
+    const card = cardEl ? (parseFloat(cardEl.value) || 0) : 0;
+    const upi = upiEl ? (parseFloat(upiEl.value) || 0) : 0;
+    const cashRecd = cashEl ? (parseFloat(cashEl.value) || 0) : 0;
 
     const cashToCollect = Math.max(0, saleAmount - card - upi);
     const difference = cashRecd - cashToCollect;
@@ -762,13 +766,8 @@ function saveCurrentFormToState() {
 
   const salesmanEntries = [];
   const salesmanCount = 5;
-  const salesmanNames = document.querySelectorAll('.salesman-select-name');
-  const cardInputs = document.querySelectorAll('.salesman-card');
-  const upiInputs = document.querySelectorAll('.salesman-upi');
-  const cashInputs = document.querySelectorAll('.salesman-cash');
 
   for (let i = 0; i < salesmanCount; i++) {
-    const salesmanName = salesmanNames[i]?.value || '';
     const assignedIndices = getAssignedNozzleIndices(shiftType, i);
     let saleKg = 0;
     let saleAmount = 0;
@@ -777,9 +776,15 @@ function saveCurrentFormToState() {
       saleAmount += nozzleReadings[idx].saleAmount;
     });
 
-    const card = parseFloat(cardInputs[i]?.value) || 0;
-    const upi = parseFloat(upiInputs[i]?.value) || 0;
-    const cashReceived = parseFloat(cashInputs[i]?.value) || 0;
+    const nameEl = document.querySelector(`.salesman-select-name[data-idx="${i}"]`);
+    const cardEl = document.querySelector(`.salesman-card[data-idx="${i}"]`);
+    const upiEl = document.querySelector(`.salesman-upi[data-idx="${i}"]`);
+    const cashEl = document.querySelector(`.salesman-cash[data-idx="${i}"]`);
+
+    const salesmanName = nameEl ? nameEl.value : '';
+    const card = cardEl ? (parseFloat(cardEl.value) || 0) : 0;
+    const upi = upiEl ? (parseFloat(upiEl.value) || 0) : 0;
+    const cashReceived = cashEl ? (parseFloat(cashEl.value) || 0) : 0;
     const cashToCollect = Math.max(0, saleAmount - card - upi);
     const difference = cashReceived - cashToCollect;
 
@@ -821,13 +826,15 @@ async function saveShiftEntryManual() {
     return;
   }
 
-  const shiftTypeVal = document.getElementById('shiftType').value;
   const salesmanCount = 5;
-  const salesmanNames = document.querySelectorAll('.salesman-select-name');
   let hasIncomplete = false;
 
   for (let i = 0; i < salesmanCount; i++) {
-    if (!salesmanNames[i]?.value) {
+    const assignedIndices = getAssignedNozzleIndices(shiftType, i);
+    if (assignedIndices.length === 0) continue; // Skip inactive salesman validation
+
+    const nameEl = document.querySelector(`.salesman-select-name[data-idx="${i}"]`);
+    if (!nameEl || !nameEl.value) {
       hasIncomplete = true;
       break;
     }
@@ -1102,19 +1109,23 @@ function generateShiftPDF() {
   // 2. Collect salesman entries from DOM
   const salesmanEntries = [];
   const salesmanCount = 5;
-  const salesmanNames = document.querySelectorAll('.salesman-select-name');
-  const cardInputs = document.querySelectorAll('.salesman-card');
-  const upiInputs = document.querySelectorAll('.salesman-upi');
-  const cashInputs = document.querySelectorAll('.salesman-cash');
-
   let hasIncomplete = false;
+
   for (let i = 0; i < salesmanCount; i++) {
-    const salesmanName = salesmanNames[i]?.value;
+    const assignedIndices = getAssignedNozzleIndices(shiftType, i);
+    if (assignedIndices.length === 0) continue; // Skip inactive salesmen
+
+    const nameEl = document.querySelector(`.salesman-select-name[data-idx="${i}"]`);
+    const cardEl = document.querySelector(`.salesman-card[data-idx="${i}"]`);
+    const upiEl = document.querySelector(`.salesman-upi[data-idx="${i}"]`);
+    const cashEl = document.querySelector(`.salesman-cash[data-idx="${i}"]`);
+
+    const salesmanName = nameEl ? nameEl.value : '';
     if (!salesmanName) {
       hasIncomplete = true;
       break;
     }
-    const assignedIndices = getAssignedNozzleIndices(shiftType, i);
+
     let saleKg = 0;
     let saleAmount = 0;
     assignedIndices.forEach(idx => {
@@ -1122,9 +1133,9 @@ function generateShiftPDF() {
       saleAmount += nozzleReadings[idx].saleAmount;
     });
 
-    const card = parseFloat(cardInputs[i]?.value) || 0;
-    const upi = parseFloat(upiInputs[i]?.value) || 0;
-    const cashReceived = parseFloat(cashInputs[i]?.value) || 0;
+    const card = cardEl ? (parseFloat(cardEl.value) || 0) : 0;
+    const upi = upiEl ? (parseFloat(upiEl.value) || 0) : 0;
+    const cashReceived = cashEl ? (parseFloat(cashEl.value) || 0) : 0;
     const cashToCollect = Math.max(0, saleAmount - card - upi);
     const difference = cashReceived - cashToCollect;
 
@@ -1489,6 +1500,7 @@ function generate24HourPDF() {
   if (dayShift && dayShift.salesmanEntries) {
     dayShift.salesmanEntries.forEach(s => {
       const assignedIndices = getAssignedNozzleIndices('Day', s.salesmanIndex);
+      if (assignedIndices.length === 0) return; // Skip inactive salesmen
       const nozzleLabels = assignedIndices.map(idx => state.nozzles[idx] || `Nozzle ${idx + 1}`).join(', ');
       allSalesmen.push({ ...s, shift: 'Day', nozzles: nozzleLabels });
     });
@@ -1496,6 +1508,7 @@ function generate24HourPDF() {
   if (nightShift && nightShift.salesmanEntries) {
     nightShift.salesmanEntries.forEach(s => {
       const assignedIndices = getAssignedNozzleIndices('Night', s.salesmanIndex);
+      if (assignedIndices.length === 0) return; // Skip inactive salesmen
       const nozzleLabels = assignedIndices.map(idx => state.nozzles[idx] || `Nozzle ${idx + 1}`).join(', ');
       allSalesmen.push({ ...s, shift: 'Night', nozzles: nozzleLabels });
     });
