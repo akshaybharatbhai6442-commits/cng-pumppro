@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>⛽ CNG PumpPro - Mobile Management</title>
+  <meta name="description" content="CNG Pump Shift-wise Staff Sales and Payment Tracking System" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- jsPDF for PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- ===== HEADER BAR ===== -->
+    <header class="topbar">
+      <div class="logo-area">
+        <span class="logo-icon">⛽</span>
+        <span class="logo-title">CNG Pro</span>
+      </div>
+      <div class="topbar-right">
+        <div id="serverStatusBadge" class="status-badge">🟡 Connecting...</div>
+        <div id="lastSavedBadge" class="status-badge" style="display:none; background:rgba(255,255,255,0.05); color:var(--text-secondary);">💾 Saved --:--:--</div>
+        <div class="top-date" id="topDate">--/--/----</div>
+      </div>
+    </header>
+
+    <!-- ===== NAVIGATION BOTTOM BAR ===== -->
+    <nav class="nav-bar">
+      <a href="#" class="nav-item active" onclick="showPage('dashboard', this)">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" onclick="showPage('shift-entry', this)">
+        <span class="nav-icon">📝</span>
+        <span class="nav-label">Shift Entry</span>
+      </a>
+      <a href="#" class="nav-item" onclick="showPage('settings', this)">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">Settings</span>
+      </a>
+    </nav>
+
+    <!-- ===== MAIN CONTENT AREA ===== -->
+    <main class="main-content">
+
+      <!-- ==============================
+           PAGE: DASHBOARD
+      ============================== -->
+      <div class="page active" id="page-dashboard">
+        <!-- Stats Cards Grid -->
+        <div class="stats-grid">
+          <div class="stat-card sale-card">
+            <div class="sc-icon">⚡</div>
+            <div class="sc-info">
+              <span class="sc-label">Today's Sales (Kg)</span>
+              <span class="sc-val" id="db-total-kg">0.00 Kg</span>
+            </div>
+          </div>
+          <div class="stat-card cash-card">
+            <div class="sc-icon">💰</div>
+            <div class="sc-info">
+              <span class="sc-label">Total Cash</span>
+              <span class="sc-val" id="db-total-cash">₹ 0.00</span>
+            </div>
+          </div>
+          <div class="stat-card paytm-card">
+            <div class="sc-icon">📱</div>
+            <div class="sc-info">
+              <span class="sc-label">Total UPI/Card</span>
+              <span class="sc-val" id="db-total-paytm">₹ 0.00</span>
+            </div>
+          </div>
+          <div class="stat-card diff-card" id="db-diff-container">
+            <div class="sc-icon">⚖️</div>
+            <div class="sc-info">
+              <span class="sc-label">Total Diff (+/-)</span>
+              <span class="sc-val" id="db-total-diff">₹ 0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connection Info Card (Wifi Share Helper) -->
+        <div class="card connection-info-card" id="connectionInfoCard" style="display:none; border-style:dashed;">
+          <div style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px;">📱 Connect Mobile Phone</div>
+          <div id="connectionInfoText" style="font-size:11px; color:var(--text-secondary); line-height:1.4;">
+            To use on your phone, connect to same Wi-Fi and open: <br/>
+            <span id="wifiUrlLink" style="color:var(--text-primary); font-weight:700; font-family:monospace; display:block; margin-top:4px; font-size:12px;"></span>
+          </div>
+        </div>
+
+        <!-- Recent Shifts List Section -->
+        <div class="section-title">
+          <h2>📋 Recent Shift Summaries</h2>
+        </div>
+        <div class="card recent-list-card">
+          <div id="recentShiftsList" class="recent-list">
+            <!-- Dynamic list of recent shifts -->
+            <div class="empty-msg">No shifts recorded yet. Start in Shift Entry!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==============================
+           PAGE: SHIFT ENTRY
+      ============================== -->
+      <div class="page" id="page-shift-entry">
+        <!-- Shift Config Topbar -->
+        <div class="entry-header-card card">
+          <div class="flex-row">
+            <div class="field-wrap">
+              <label>📅 Date:</label>
+              <input type="date" id="shiftDate" class="inp-date" onchange="loadShiftForSelected()" />
+            </div>
+            <div class="field-wrap">
+              <label>🌅 Shift:</label>
+              <select id="shiftType" class="inp-select" onchange="loadShiftForSelected()">
+                <option value="Day">🌞 Day Shift</option>
+                <option value="Night">🌙 Night Shift</option>
+              </select>
+            </div>
+            <div class="field-wrap">
+              <label>📈 CNG Rate (₹/Kg):</label>
+              <input type="number" id="cngRate" class="inp-num" value="82.50" step="0.01" oninput="markDirty()" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 7 Nozzles Readings Entry -->
+        <div class="section-title">
+          <h2>⛽ Nozzle Readings (7 Nozzles)</h2>
+        </div>
+        <div id="nozzlesContainer" class="staff-rows-list">
+          <!-- 7 nozzles will render dynamically here -->
+        </div>
+
+        <!-- Salesman Wise Hisab -->
+        <div class="section-title">
+          <h2>👥 Salesman Wise Tally (Hisab)</h2>
+        </div>
+        <div id="salesmanContainer" class="staff-rows-list">
+          <!-- 2 or 3 salesmen entries will render dynamically based on shift (Day/Night) -->
+        </div>
+
+        <!-- Shift Remarks & Save -->
+        <div class="card remarks-card">
+          <label>📝 Shift Remarks / Notes:</label>
+          <textarea id="shiftRemarks" class="inp-textarea" placeholder="Add shift notes (e.g. short, excess reasons, machine issues)" oninput="markDirty()"></textarea>
+          <div class="actions-row">
+            <button type="button" class="btn-pdf" onclick="generateShiftPDF()">📄 Download PDF Report</button>
+            <button type="button" id="btnUnlockShift" class="btn-primary" style="display:none; flex:1; font-weight:700;" onclick="unlockShiftPrompt()">🔓 Unlock Shift</button>
+            <button type="button" id="btnSaveShift" class="btn-save-shift" onclick="saveShiftEntryManual()">💾 Save Shift Data</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==============================
+           PAGE: SETTINGS
+      ============================== -->
+      <div class="page" id="page-settings">
+        <!-- Manage Staff Members -->
+        <div class="card">
+          <div class="card-hdr">
+            <h2>👥 Manage Salesmen (Staff)</h2>
+          </div>
+          <div class="settings-add-item">
+            <input type="text" id="newStaffName" class="inp-text" placeholder="Enter salesman name" />
+            <button type="button" class="btn-primary" onclick="addStaffMember()">Add</button>
+          </div>
+          <ul id="settingsStaffList" class="settings-list">
+            <!-- Dynamic staff names list -->
+          </ul>
+        </div>
+
+        <!-- Manage Nozzles -->
+        <div class="card">
+          <div class="card-hdr">
+            <h2>⛽ Configure Nozzle Names</h2>
+          </div>
+          <p class="settings-info-text" style="margin-bottom: 10px;">CNG PumpPro operates on exactly 7 nozzles. You can rename them below:</p>
+          <ul id="settingsNozzleList" class="settings-list">
+            <!-- Dynamic nozzles list (7 nozzles edit) -->
+          </ul>
+        </div>
+
+        <!-- Configure Nozzle Assignments -->
+        <div class="card">
+          <div class="card-hdr">
+            <h2>⛽ Shift Nozzle Assignments</h2>
+          </div>
+          <p class="settings-info-text" style="margin-bottom: 12px;">Choose which nozzles are operated by which salesman in each shift:</p>
+          
+          <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 10px;">
+            <h3 style="font-size:12px; color:var(--accent); margin-bottom:6px;">🌞 Day Shift (3 Salesmen)</h3>
+            <div id="dayNozzleAssignments"></div>
+          </div>
+          
+          <div>
+            <h3 style="font-size:12px; color:var(--accent); margin-bottom:6px;">🌙 Night Shift (2 Salesmen)</h3>
+            <div id="nightNozzleAssignments"></div>
+          </div>
+        </div>
+
+        <!-- Database & Firebase Settings Info -->
+        <div class="card">
+          <div class="card-hdr">
+            <h2>☁️ Google Firebase Configuration</h2>
+          </div>
+          <p class="settings-info-text">Using the credentials provided, database is linked directly to your private Google Cloud (pumppro-mobile) and synced to your PC local disk for lifetime protection.</p>
+          <div class="actions-row" style="margin-top:12px;">
+            <button type="button" class="btn-danger-outline" onclick="resetAllState()">⚠️ Reset All Data</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ===== TOAST NOTIFICATION ===== -->
+    <div class="toast-container" id="toastContainer"></div>
+  </div>
+
+  <!-- Firebase Compatibility SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <!-- CNG Application Code -->
+  <script src="app.js"></script>
+</body>
+</html>
