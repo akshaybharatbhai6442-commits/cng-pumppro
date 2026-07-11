@@ -358,25 +358,36 @@ function sanitizeShiftMappings() {
   if (!state.shiftMappings.Day) state.shiftMappings.Day = [];
   if (!state.shiftMappings.Night) state.shiftMappings.Night = [];
 
-  // Ensure Day has 5 entries
-  while (state.shiftMappings.Day.length < 5) {
-    const idx = state.shiftMappings.Day.length;
-    if (idx === 0) state.shiftMappings.Day.push([0, 1]);
-    else if (idx === 1) state.shiftMappings.Day.push([2, 3]);
-    else if (idx === 2) state.shiftMappings.Day.push([4]);
-    else if (idx === 3) state.shiftMappings.Day.push([5]);
-    else if (idx === 4) state.shiftMappings.Day.push([6]);
-    else state.shiftMappings.Day.push([]);
+  // Initialize Day with defaults ONLY if it is completely empty
+  if (state.shiftMappings.Day.length === 0) {
+    state.shiftMappings.Day = [
+      [0, 1], // Salesman 1: Nozzle 1, 2
+      [2, 3], // Salesman 2: Nozzle 3, 4
+      [4],    // Salesman 3: Nozzle 5
+      [5],    // Salesman 4: Nozzle 6
+      [6]     // Salesman 5: Nozzle 7
+    ];
+  } else {
+    // If it already has data, pad with empty arrays (so we preserve empty selections)
+    while (state.shiftMappings.Day.length < 5) {
+      state.shiftMappings.Day.push([]);
+    }
   }
-  // Ensure Night has 5 entries
-  while (state.shiftMappings.Night.length < 5) {
-    const idx = state.shiftMappings.Night.length;
-    if (idx === 0) state.shiftMappings.Night.push([0, 1]);
-    else if (idx === 1) state.shiftMappings.Night.push([2, 3]);
-    else if (idx === 2) state.shiftMappings.Night.push([4]);
-    else if (idx === 3) state.shiftMappings.Night.push([5]);
-    else if (idx === 4) state.shiftMappings.Night.push([6]);
-    else state.shiftMappings.Night.push([]);
+
+  // Initialize Night with defaults ONLY if it is completely empty
+  if (state.shiftMappings.Night.length === 0) {
+    state.shiftMappings.Night = [
+      [0, 1], // Salesman 1: Nozzle 1, 2
+      [2, 3], // Salesman 2: Nozzle 3, 4
+      [4],    // Salesman 3: Nozzle 5
+      [5],    // Salesman 4: Nozzle 6
+      [6]     // Salesman 5: Nozzle 7
+    ];
+  } else {
+    // If it already has data, pad with empty arrays
+    while (state.shiftMappings.Night.length < 5) {
+      state.shiftMappings.Night.push([]);
+    }
   }
 }
 
