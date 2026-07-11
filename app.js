@@ -1033,6 +1033,11 @@ async function deleteStaffMember(idx) {
 }
 
 async function resetAllState() {
+  const pw = prompt("Enter Password to reset all data:");
+  if (pw !== 'PRANAV@6442') {
+    showToast('Incorrect Password!', true);
+    return;
+  }
   if (confirm('⚠️ WARNING: This will permanently delete all shift entries, staff, and nozzle settings. Are you absolutely sure?')) {
     state = {
       staffNames: [],
