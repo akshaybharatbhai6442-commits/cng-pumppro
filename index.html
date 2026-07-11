@@ -140,6 +140,15 @@
         <div class="section-title">
           <h2>👥 Salesman Wise Tally (Hisab)</h2>
         </div>
+        <!-- Day Shift Digital Summary (Visible during Night Shift entry) -->
+        <div id="dayShiftSummaryCard" class="card" style="display:none; background:rgba(0, 230, 118, 0.08); border:1px dashed var(--accent); margin-bottom:12px; padding:12px;">
+          <h3 style="font-size:12px; color:var(--accent); margin:0 0 6px 0; display:flex; align-items:center; gap:6px;">🌞 Day Shift Digital Total</h3>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; font-size:11px;">
+            <div>💳 Day Card: <strong id="dayTotalCardVal">₹ 0.00</strong></div>
+            <div>📱 Day UPI: <strong id="dayTotalUpiVal">₹ 0.00</strong></div>
+            <div>📊 Total: <strong id="dayTotalDigitalVal">₹ 0.00</strong></div>
+          </div>
+        </div>
         <div id="salesmanContainer" class="staff-rows-list">
           <!-- 2 or 3 salesmen entries will render dynamically based on shift (Day/Night) -->
         </div>
@@ -150,6 +159,7 @@
           <textarea id="shiftRemarks" class="inp-textarea" placeholder="Add shift notes (e.g. short, excess reasons, machine issues)" oninput="markDirty()"></textarea>
           <div class="actions-row">
             <button type="button" class="btn-pdf" onclick="generateShiftPDF()">📄 Download PDF Report</button>
+            <button type="button" class="btn-pdf" style="background-color: rgba(0, 230, 118, 0.1); border-color: rgba(0, 230, 118, 0.3);" onclick="generate24HourPDF()">📅 Download 24h Report</button>
             <button type="button" id="btnUnlockShift" class="btn-primary" style="display:none; flex:1; font-weight:700;" onclick="unlockShiftPrompt()">🔓 Unlock Shift</button>
             <button type="button" id="btnSaveShift" class="btn-save-shift" onclick="saveShiftEntryManual()">💾 Save Shift Data</button>
           </div>
@@ -193,12 +203,12 @@
           <p class="settings-info-text" style="margin-bottom: 12px;">Choose which nozzles are operated by which salesman in each shift:</p>
           
           <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 10px;">
-            <h3 style="font-size:12px; color:var(--accent); margin-bottom:6px;">🌞 Day Shift (3 Salesmen)</h3>
+            <h3 style="font-size:12px; color:var(--accent); margin-bottom:6px;">🌞 Day Shift (5 Salesmen)</h3>
             <div id="dayNozzleAssignments"></div>
           </div>
           
           <div>
-            <h3 style="font-size:12px; color:var(--accent); margin-bottom:6px;">🌙 Night Shift (2 Salesmen)</h3>
+            <h3 style="font-size:12px; color:var(--accent); margin-bottom:6px;">🌙 Night Shift (5 Salesmen)</h3>
             <div id="nightNozzleAssignments"></div>
           </div>
         </div>

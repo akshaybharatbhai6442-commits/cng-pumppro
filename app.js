@@ -353,24 +353,30 @@ function renderNozzlesContainer(loadedNozzleReadings = null) {
 
 function sanitizeShiftMappings() {
   if (!state.shiftMappings) {
-    state.shiftMappings = {
-      Day: [
-        [0, 1],       // Salesman 1
-        [2, 3],       // Salesman 2
-        [4, 5, 6]     // Salesman 3
-      ],
-      Night: [
-        [0, 1, 2],    // Salesman 1
-        [3, 4, 5, 6]  // Salesman 2
-      ]
-    };
+    state.shiftMappings = { Day: [], Night: [] };
   }
-  // Safeguards to make sure arrays exist and are populated
-  if (!state.shiftMappings.Day) {
-    state.shiftMappings.Day = [[0, 1], [2, 3], [4, 5, 6]];
+  if (!state.shiftMappings.Day) state.shiftMappings.Day = [];
+  if (!state.shiftMappings.Night) state.shiftMappings.Night = [];
+
+  // Ensure Day has 5 entries
+  while (state.shiftMappings.Day.length < 5) {
+    const idx = state.shiftMappings.Day.length;
+    if (idx === 0) state.shiftMappings.Day.push([0, 1]);
+    else if (idx === 1) state.shiftMappings.Day.push([2, 3]);
+    else if (idx === 2) state.shiftMappings.Day.push([4]);
+    else if (idx === 3) state.shiftMappings.Day.push([5]);
+    else if (idx === 4) state.shiftMappings.Day.push([6]);
+    else state.shiftMappings.Day.push([]);
   }
-  if (!state.shiftMappings.Night) {
-    state.shiftMappings.Night = [[0, 1, 2], [3, 4, 5, 6]];
+  // Ensure Night has 5 entries
+  while (state.shiftMappings.Night.length < 5) {
+    const idx = state.shiftMappings.Night.length;
+    if (idx === 0) state.shiftMappings.Night.push([0, 1]);
+    else if (idx === 1) state.shiftMappings.Night.push([2, 3]);
+    else if (idx === 2) state.shiftMappings.Night.push([4]);
+    else if (idx === 3) state.shiftMappings.Night.push([5]);
+    else if (idx === 4) state.shiftMappings.Night.push([6]);
+    else state.shiftMappings.Night.push([]);
   }
 }
 
@@ -380,14 +386,11 @@ function getAssignedNozzleIndices(shiftType, salesmanIndex) {
     return state.shiftMappings[shiftType][salesmanIndex];
   }
   // Fallbacks
-  if (shiftType === 'Day') {
-    if (salesmanIndex === 0) return [0, 1];
-    if (salesmanIndex === 1) return [2, 3];
-    if (salesmanIndex === 2) return [4, 5, 6];
-  } else { // Night
-    if (salesmanIndex === 0) return [0, 1, 2];
-    if (salesmanIndex === 1) return [3, 4, 5, 6];
-  }
+  if (salesmanIndex === 0) return [0, 1];
+  if (salesmanIndex === 1) return [2, 3];
+  if (salesmanIndex === 2) return [4];
+  if (salesmanIndex === 3) return [5];
+  if (salesmanIndex === 4) return [6];
   return [];
 }
 
@@ -421,8 +424,8 @@ function renderShiftAssignments() {
   dayContainer.innerHTML = '';
   nightContainer.innerHTML = '';
   
-  // Render Day Shift (3 salesmen)
-  for (let s = 0; s < 3; s++) {
+  // Render Day Shift (5 salesmen)
+  for (let s = 0; s < 5; s++) {
     const assigned = state.shiftMappings.Day[s] || [];
     const div = document.createElement('div');
     div.style.marginBottom = '12px';
@@ -443,8 +446,8 @@ function renderShiftAssignments() {
     dayContainer.appendChild(div);
   }
   
-  // Render Night Shift (2 salesmen)
-  for (let s = 0; s < 2; s++) {
+  // Render Night Shift (5 salesmen)
+  for (let s = 0; s < 5; s++) {
     const assigned = state.shiftMappings.Night[s] || [];
     const div = document.createElement('div');
     div.style.marginBottom = '12px';
@@ -471,7 +474,7 @@ function renderSalesmanEntries(loadedSalesmanEntries = null) {
   container.innerHTML = '';
 
   const shiftType = document.getElementById('shiftType').value;
-  const count = shiftType === 'Day' ? 3 : 2;
+  const count = 5;
 
   for (let i = 0; i < count; i++) {
     const assignedIndices = getAssignedNozzleIndices(shiftType, i);
@@ -570,7 +573,7 @@ function recalculateAll() {
     if (amtEl) amtEl.textContent = `₹ ${saleAmount.toFixed(2)}`;
   }
 
-  const salesmanCount = shiftType === 'Day' ? 3 : 2;
+  const salesmanCount = 5;
   const cardInputs = document.querySelectorAll('.salesman-card');
   const upiInputs = document.querySelectorAll('.salesman-upi');
   const cashInputs = document.querySelectorAll('.salesman-cash');
@@ -695,6 +698,37 @@ function loadShiftForSelected() {
     document.getElementById('btnSaveShift').style.display = 'block';
   }
   recalculateAll();
+  updateDayShiftSummaryCard();
+}
+
+function updateDayShiftSummaryCard() {
+  const dateStr = document.getElementById('shiftDate').value;
+  const shiftType = document.getElementById('shiftType').value;
+  const summaryCard = document.getElementById('dayShiftSummaryCard');
+  
+  if (!summaryCard) return;
+
+  if (shiftType === 'Night' && dateStr) {
+    const dayShiftId = `${dateStr}_Day`;
+    const dayShift = state.shifts.find(s => s.id === dayShiftId);
+    
+    if (dayShift && dayShift.salesmanEntries) {
+      let cardTotal = 0;
+      let upiTotal = 0;
+      dayShift.salesmanEntries.forEach(s => {
+        cardTotal += parseFloat(s.card) || 0;
+        upiTotal += parseFloat(s.upi) || 0;
+      });
+      
+      document.getElementById('dayTotalCardVal').textContent = `₹ ${cardTotal.toFixed(2)}`;
+      document.getElementById('dayTotalUpiVal').textContent = `₹ ${upiTotal.toFixed(2)}`;
+      document.getElementById('dayTotalDigitalVal').textContent = `₹ ${(cardTotal + upiTotal).toFixed(2)}`;
+      summaryCard.style.display = 'block';
+      return;
+    }
+  }
+  
+  summaryCard.style.display = 'none';
 }
 
 function saveCurrentFormToState() {
@@ -727,7 +761,7 @@ function saveCurrentFormToState() {
   }
 
   const salesmanEntries = [];
-  const salesmanCount = shiftType === 'Day' ? 3 : 2;
+  const salesmanCount = 5;
   const salesmanNames = document.querySelectorAll('.salesman-select-name');
   const cardInputs = document.querySelectorAll('.salesman-card');
   const upiInputs = document.querySelectorAll('.salesman-upi');
@@ -788,7 +822,7 @@ async function saveShiftEntryManual() {
   }
 
   const shiftTypeVal = document.getElementById('shiftType').value;
-  const salesmanCount = shiftTypeVal === 'Day' ? 3 : 2;
+  const salesmanCount = 5;
   const salesmanNames = document.querySelectorAll('.salesman-select-name');
   let hasIncomplete = false;
 
@@ -1062,7 +1096,7 @@ function generateShiftPDF() {
 
   // 2. Collect salesman entries from DOM
   const salesmanEntries = [];
-  const salesmanCount = shiftType === 'Day' ? 3 : 2;
+  const salesmanCount = 5;
   const salesmanNames = document.querySelectorAll('.salesman-select-name');
   const cardInputs = document.querySelectorAll('.salesman-card');
   const upiInputs = document.querySelectorAll('.salesman-upi');
@@ -1308,4 +1342,260 @@ function generateShiftPDF() {
   const filename = `CNG_Shift_${dateStr}_${shiftType}.pdf`;
   doc.save(filename);
   showToast(`📄 PDF downloaded: ${filename}`);
+}
+
+function generate24HourPDF() {
+  const dateStr = document.getElementById('shiftDate').value;
+  if (!dateStr) {
+    showToast('Please select a date to generate 24h PDF!', true);
+    return;
+  }
+
+  const dayShift = state.shifts.find(s => s.date === dateStr && s.shiftType === 'Day');
+  const nightShift = state.shifts.find(s => s.date === dateStr && s.shiftType === 'Night');
+
+  if (!dayShift && !nightShift) {
+    showToast('No shift data found for this date!', true);
+    return;
+  }
+
+  const [y, m, d] = dateStr.split('-');
+  const displayDate = `${d}/${m}/${y}`;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // Header Title
+  doc.setFillColor(18, 22, 31);
+  doc.rect(0, 0, 210, 32, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('CNG PumpPro', 15, 12);
+  doc.setFontSize(9);
+  doc.setFont('Helvetica', 'normal');
+  doc.text('24-HOUR COMBINED DAILY SALES & TALLY REPORT', 15, 18);
+
+  // Metadata Card
+  doc.setFillColor(245, 245, 245);
+  doc.rect(15, 36, 180, 18, 'F');
+  
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text(`DATE: ${displayDate}`, 20, 42);
+  
+  const rateDay = dayShift ? dayShift.cngRate : 0;
+  const rateNight = nightShift ? nightShift.cngRate : 0;
+  const rateStr = rateDay && rateNight && rateDay !== rateNight 
+    ? `Rs. ${rateDay.toFixed(2)} (Day) / Rs. ${rateNight.toFixed(2)} (Night)`
+    : `Rs. ${(rateDay || rateNight).toFixed(2)}/Kg`;
+
+  doc.text(`CNG RATE: ${rateStr}`, 20, 48);
+  doc.text(`GENERATED AT: ${new Date().toLocaleTimeString()}`, 110, 48);
+  doc.text(`SHIFTS RECORDED: ${dayShift ? '🌞 DAY' : ''} ${nightShift ? '🌙 NIGHT' : ''}`, 110, 42);
+
+  // 1. COMBINED NOZZLE SALES TABLE
+  let startY = 60;
+  doc.setFillColor(0, 150, 136); // Teal for combined
+  doc.rect(15, startY, 180, 7, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Nozzle Name', 18, startY + 5);
+  doc.text('Day Sale (Kg)', 65, startY + 5);
+  doc.text('Night Sale (Kg)', 100, startY + 5);
+  doc.text('Total Sale (Kg)', 135, startY + 5);
+  doc.text('Total Amount (₹)', 165, startY + 5);
+
+  let currentY = startY + 7;
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('Helvetica', 'normal');
+  
+  let grandNozzleSaleKg = 0;
+  let grandNozzleSaleAmt = 0;
+
+  for (let i = 0; i < 7; i++) {
+    const nozzleName = state.nozzles[i] || `Nozzle ${i + 1}`;
+    const daySale = dayShift && dayShift.nozzleReadings[i] ? dayShift.nozzleReadings[i].saleKg : 0;
+    const nightSale = nightShift && nightShift.nozzleReadings[i] ? nightShift.nozzleReadings[i].saleKg : 0;
+    const totalSale = daySale + nightSale;
+    const totalAmt = (dayShift && dayShift.nozzleReadings[i] ? dayShift.nozzleReadings[i].saleAmount : 0) + 
+                     (nightShift && nightShift.nozzleReadings[i] ? nightShift.nozzleReadings[i].saleAmount : 0);
+
+    if (i % 2 === 1) {
+      doc.setFillColor(248, 249, 250);
+      doc.rect(15, currentY, 180, 8, 'F');
+    }
+    doc.setDrawColor(230, 230, 230);
+    doc.line(15, currentY + 8, 195, currentY + 8);
+
+    doc.text(nozzleName, 18, currentY + 5);
+    doc.text(daySale.toFixed(2), 65, currentY + 5);
+    doc.text(nightSale.toFixed(2), 100, currentY + 5);
+    doc.text(`${totalSale.toFixed(2)} Kg`, 135, currentY + 5);
+    doc.text(`Rs. ${totalAmt.toFixed(2)}`, 165, currentY + 5);
+
+    grandNozzleSaleKg += totalSale;
+    grandNozzleSaleAmt += totalAmt;
+    currentY += 8;
+  }
+
+  doc.setFillColor(240, 240, 240);
+  doc.rect(15, currentY, 180, 8, 'F');
+  doc.setFont('Helvetica', 'bold');
+  doc.text('Total 24h Sales', 18, currentY + 5);
+  doc.text(`${(dayShift ? dayShift.nozzleReadings.reduce((sum, n) => sum + n.saleKg, 0) : 0).toFixed(2)} Kg`, 65, currentY + 5);
+  doc.text(`${(nightShift ? nightShift.nozzleReadings.reduce((sum, n) => sum + n.saleKg, 0) : 0).toFixed(2)} Kg`, 100, currentY + 5);
+  doc.text(`${grandNozzleSaleKg.toFixed(2)} Kg`, 135, currentY + 5);
+  doc.text(`Rs. ${grandNozzleSaleAmt.toFixed(2)}`, 165, currentY + 5);
+  currentY += 12;
+
+  // 2. SALESMAN WISE HISAB TABLE (Day & Night shifts listed)
+  doc.setFillColor(0, 150, 136);
+  doc.rect(15, currentY, 180, 7, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.text('Shift - Salesman / Nozzles', 18, currentY + 5);
+  doc.text('Sale Amt', 65, currentY + 5);
+  doc.text('Card/UPI', 95, currentY + 5);
+  doc.text('Cash Collect', 125, currentY + 5);
+  doc.text('Cash Recd', 155, currentY + 5);
+  doc.text('Diff (+/-)', 178, currentY + 5);
+
+  currentY += 7;
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('Helvetica', 'normal');
+  doc.setFontSize(8);
+
+  let totalCard = 0;
+  let totalUpi = 0;
+  let totalCashRecd = 0;
+  let totalCashToCollect = 0;
+  let totalDiff = 0;
+
+  const allSalesmen = [];
+  if (dayShift && dayShift.salesmanEntries) {
+    dayShift.salesmanEntries.forEach(s => {
+      allSalesmen.push({ ...s, shift: '🌞 Day' });
+    });
+  }
+  if (nightShift && nightShift.salesmanEntries) {
+    nightShift.salesmanEntries.forEach(s => {
+      allSalesmen.push({ ...s, shift: '🌙 Night' });
+    });
+  }
+
+  allSalesmen.forEach((s, idx) => {
+    if (idx % 2 === 1) {
+      doc.setFillColor(248, 249, 250);
+      doc.rect(15, currentY, 180, 10, 'F');
+    }
+    doc.setDrawColor(230, 230, 230);
+    doc.line(15, currentY + 10, 195, currentY + 10);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text(`${s.shift} - ${s.name}`, 18, currentY + 4);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(`(${s.nozzles || ''})`, 18, currentY + 8);
+
+    doc.setFontSize(8.5);
+    doc.text(`Rs. ${s.saleAmount.toFixed(2)}`, 65, currentY + 6);
+    doc.text(`Rs. ${(s.card + s.upi).toFixed(2)}`, 95, currentY + 4);
+    doc.setFontSize(7);
+    doc.text(`(C:${s.card} U:${s.upi})`, 95, currentY + 8);
+    
+    doc.setFontSize(8.5);
+    doc.text(`Rs. ${s.cashToCollect.toFixed(2)}`, 125, currentY + 6);
+    doc.text(`Rs. ${s.cashReceived.toFixed(2)}`, 155, currentY + 6);
+    
+    doc.setFont('Helvetica', 'bold');
+    if (s.difference >= 0) {
+      doc.setTextColor(0, 120, 0);
+      doc.text(`+${s.difference.toFixed(2)}`, 178, currentY + 6);
+    } else {
+      doc.setTextColor(200, 0, 0);
+      doc.text(`${s.difference.toFixed(2)}`, 178, currentY + 6);
+    }
+    doc.setTextColor(0,0,0);
+
+    totalCard += s.card;
+    totalUpi += s.upi;
+    totalCashRecd += s.cashReceived;
+    totalCashToCollect += s.cashToCollect;
+    totalDiff += s.difference;
+
+    currentY += 10;
+  });
+
+  // Totals Summary Box
+  currentY += 4;
+  doc.setFillColor(240, 248, 240);
+  doc.rect(15, currentY, 180, 22, 'F');
+  doc.setDrawColor(0, 150, 136);
+  doc.rect(15, currentY, 180, 22, 'S');
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('Helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('24-HOUR COMBINED GRAND SUMMARY', 20, currentY + 5);
+  doc.line(20, currentY + 7, 190, currentY + 7);
+
+  doc.setFont('Helvetica', 'normal');
+  doc.text(`Total Sales: Rs. ${grandNozzleSaleAmt.toFixed(2)}`, 20, currentY + 12);
+  doc.text(`Total Sales (Kg): ${grandNozzleSaleKg.toFixed(2)} Kg`, 20, currentY + 17);
+
+  doc.text(`Digital: Rs. ${(totalCard + totalUpi).toFixed(2)} (Card:${totalCard} UPI:${totalUpi})`, 90, currentY + 12);
+  doc.text(`Cash Collect: Rs. ${totalCashToCollect.toFixed(2)}`, 90, currentY + 17);
+  doc.text(`Cash Recd: Rs. ${totalCashRecd.toFixed(2)}`, 142, currentY + 12);
+
+  doc.setFont('Helvetica', 'bold');
+  doc.text(`Net Diff:`, 142, currentY + 17);
+  if (totalDiff >= 0) {
+    doc.setTextColor(0, 120, 0);
+    doc.text(`+${totalDiff.toFixed(2)}`, 158, currentY + 17);
+  } else {
+    doc.setTextColor(200, 0, 0);
+    doc.text(`${totalDiff.toFixed(2)}`, 158, currentY + 17);
+  }
+  doc.setTextColor(0, 0, 0);
+
+  // Remarks Section
+  let remarksText = '';
+  if (dayShift && dayShift.remarks) {
+    remarksText += `[Day]: ${dayShift.remarks}\n`;
+  }
+  if (nightShift && nightShift.remarks) {
+    remarksText += `[Night]: ${nightShift.remarks}`;
+  }
+  
+  if (remarksText) {
+    currentY += 28;
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('COMBINED SHIFT REMARKS:', 15, currentY);
+    doc.setFont('Helvetica', 'normal');
+    doc.setTextColor(0,0,0);
+    
+    const splitRemarks = doc.splitTextToSize(remarksText, 180);
+    doc.text(splitRemarks, 15, currentY + 5);
+  }
+
+  // Footer branding
+  doc.setTextColor(150, 150, 150);
+  doc.setFontSize(7);
+  doc.text('Generated via CNG PumpPro Cloud Mobile App - Powered by Google', 15, 285);
+
+  const filename = `CNG_24h_Report_${dateStr}.pdf`;
+  doc.save(filename);
+  showToast(`📄 24h PDF downloaded: ${filename}`);
 }
