@@ -23,21 +23,22 @@
       <div class="topbar-right">
         <div id="serverStatusBadge" class="status-badge">🟡 Connecting...</div>
         <div id="lastSavedBadge" class="status-badge" style="display:none; background:rgba(255,255,255,0.05); color:var(--text-secondary);">💾 Saved --:--:--</div>
+        <div id="userRoleBadge" class="status-badge" style="display:none; background:rgba(255,255,255,0.08); cursor:pointer;" onclick="logoutUser()">👤 --</div>
         <div class="top-date" id="topDate">--/--/----</div>
       </div>
     </header>
 
     <!-- ===== NAVIGATION BOTTOM BAR ===== -->
-    <nav class="nav-bar">
-      <a href="#" class="nav-item active" onclick="showPage('dashboard', this)">
+    <nav class="nav-bar" id="bottomNavBar">
+      <a href="#" id="nav-dashboard" class="nav-item active" onclick="showPage('dashboard', this)">
         <span class="nav-icon">📊</span>
         <span class="nav-label">Dashboard</span>
       </a>
-      <a href="#" class="nav-item" onclick="showPage('shift-entry', this)">
+      <a href="#" id="nav-shift-entry" class="nav-item" onclick="showPage('shift-entry', this)">
         <span class="nav-icon">📝</span>
         <span class="nav-label">Shift Entry</span>
       </a>
-      <a href="#" class="nav-item" onclick="showPage('settings', this)">
+      <a href="#" id="nav-settings" class="nav-item" onclick="showPage('settings', this)">
         <span class="nav-icon">⚙️</span>
         <span class="nav-label">Settings</span>
       </a>
@@ -213,6 +214,34 @@
           </div>
         </div>
 
+        <!-- Master CNG Rate (Admin only) -->
+        <div class="card">
+          <div class="card-hdr">
+            <h2>📈 Master CNG Rate (₹/Kg)</h2>
+          </div>
+          <p class="settings-info-text" style="margin-bottom: 10px;">Set the CNG rate. New shifts will use this rate automatically.</p>
+          <div class="settings-add-item">
+            <input type="number" id="masterCngRateInput" class="inp-num" step="0.01" value="82.50" style="flex: 1; padding: 10px; max-width: 150px;" />
+            <button type="button" class="btn-primary" onclick="saveMasterCngRate()">Save Rate</button>
+          </div>
+        </div>
+
+        <!-- Manage Staff Login Accounts (Admin only) -->
+        <div class="card">
+          <div class="card-hdr">
+            <h2>🔑 Manage Staff Login Accounts</h2>
+          </div>
+          <p class="settings-info-text" style="margin-bottom: 10px;">Create login usernames and passwords for your staff.</p>
+          <div class="settings-add-item" style="display: flex; flex-direction: column; gap: 8px; align-items: stretch;">
+            <input type="text" id="newStaffUsername" class="inp-text" placeholder="Enter Staff Username (ID)" />
+            <input type="text" id="newStaffPassword" class="inp-text" placeholder="Enter Staff Password" />
+            <button type="button" class="btn-primary" style="width: 100%; margin-left: 0; padding: 10px;" onclick="addStaffAccount()">Create Account</button>
+          </div>
+          <ul id="settingsStaffAccountsList" class="settings-list" style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 8px;">
+            <!-- Dynamic staff accounts list -->
+          </ul>
+        </div>
+
         <!-- Database & Firebase Settings Info -->
         <div class="card">
           <div class="card-hdr">
@@ -229,6 +258,37 @@
 
     <!-- ===== TOAST NOTIFICATION ===== -->
     <div class="toast-container" id="toastContainer"></div>
+  </div>
+
+  <!-- ===== LOGIN OVERLAY ===== -->
+  <div id="loginOverlay" class="login-overlay" style="display: none;">
+    <div class="login-card">
+      <div class="login-header">
+        <span style="font-size: 32px;">⛽</span>
+        <h2>CNG PumpPro</h2>
+        <p>Enter credentials to access system</p>
+      </div>
+      
+      <div class="login-form">
+        <div class="field-wrap" style="margin-bottom: 12px;">
+          <label for="loginUsername">👤 User ID (Username):</label>
+          <input type="text" id="loginUsername" class="inp-text" placeholder="Enter User ID (e.g. ADMIN)" style="padding: 12px; font-size: 15px; text-transform: uppercase;" />
+        </div>
+        
+        <div class="field-wrap" style="margin-bottom: 20px;">
+          <label for="loginPassword">🔑 Password:</label>
+          <input type="password" id="loginPassword" class="inp-text" placeholder="Enter Password" style="padding: 12px; font-size: 15px;" />
+        </div>
+        
+        <div id="loginErrorMsg" class="login-error-msg" style="display: none; color: var(--red-alert); font-size: 12px; margin-bottom: 12px; font-weight: 600;">
+          ❌ Invalid Username or Password!
+        </div>
+        
+        <button type="button" id="btnLogin" class="btn-save-shift" style="width: 100%; padding: 12px; font-size: 15px; font-weight: 700; border-radius: 12px;" onclick="handleLoginSubmit()">
+          🔓 Sign In
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Firebase Compatibility SDKs -->
