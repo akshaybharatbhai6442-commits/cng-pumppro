@@ -693,6 +693,17 @@ function unlockShiftPrompt() {
     setFormFieldsDisabled(false);
     document.getElementById('btnUnlockShift').style.display = 'none';
     document.getElementById('btnSaveShift').style.display = 'block';
+    
+    // Set isLocked to false in state immediately so auto-save doesn't re-lock it
+    const dateStr = document.getElementById('shiftDate').value;
+    const shiftType = document.getElementById('shiftType').value;
+    const shiftId = `${dateStr}_${shiftType}`;
+    const foundShift = state.shifts.find(s => s.id === shiftId);
+    if (foundShift) {
+      foundShift.isLocked = false;
+      saveStateToFirebase();
+    }
+    
     showToast('Shift Unlocked successfully!');
   }
 }
@@ -716,18 +727,33 @@ function loadShiftForSelected() {
     renderNozzlesContainer(foundShift.nozzleReadings);
     renderSalesmanEntries(foundShift.salesmanEntries);
     
-    // Lock saved shift
-    isShiftLocked = true;
-    setFormFieldsDisabled(true);
-    
-    if (role === 'admin') {
-      document.getElementById('btnUnlockShift').style.display = 'block';
-      document.getElementById('btnSaveShift').style.display = 'none';
+    const isLocked = foundShift.isLocked !== undefined ? foundShift.isLocked : true;
+
+    if (isLocked) {
+      // Lock saved shift
+      isShiftLocked = true;
+      setFormFieldsDisabled(true);
+      
+      if (role === 'admin') {
+        document.getElementById('btnUnlockShift').style.display = 'block';
+        document.getElementById('btnSaveShift').style.display = 'none';
+      } else {
+        document.getElementById('btnUnlockShift').style.display = 'none';
+        document.getElementById('btnSaveShift').style.display = 'none';
+      }
+      showToast('Existing shift data loaded! Locked.');
     } else {
+      // Draft shift: keep unlocked
+      isShiftLocked = false;
+      setFormFieldsDisabled(false);
+      
+      if (role !== 'admin' && document.getElementById('cngRate')) {
+        document.getElementById('cngRate').disabled = true;
+      }
+      
       document.getElementById('btnUnlockShift').style.display = 'none';
-      document.getElementById('btnSaveShift').style.display = 'none';
+      document.getElementById('btnSaveShift').style.display = 'block';
     }
-    showToast('Existing shift data loaded! Locked.');
   } else {
     // New shift: prefill master cng rate
     if (state.masterCngRate !== undefined) {
@@ -782,7 +808,7 @@ function updateDayShiftSummaryCard() {
   summaryCard.style.display = 'none';
 }
 
-function saveCurrentFormToState() {
+function saveCurrentFormToState(isManualSave = false) {
   const dateStr = document.getElementById('shiftDate').value;
   const shiftType = document.getElementById('shiftType').value;
   const cngRate = parseFloat(document.getElementById('cngRate').value) || 0;
@@ -790,6 +816,10 @@ function saveCurrentFormToState() {
   const shiftId = `${dateStr}_${shiftType}`;
 
   if (!dateStr) return;
+
+  const existingShift = state.shifts.find(s => s.id === shiftId);
+  const wasLocked = existingShift ? !!existingShift.isLocked : false;
+  const isLocked = wasLocked || isManualSave;
 
   const nozzleReadings = [];
   const openingInputs = document.querySelectorAll('.nozzle-opening-input');
@@ -857,7 +887,8 @@ function saveCurrentFormToState() {
     remarks,
     nozzleReadings,
     salesmanEntries,
-    savedAt: new Date().toISOString()
+    savedAt: new Date().toISOString(),
+    isLocked: isLocked
   });
 
   state.shifts.sort((a,b) => new Date(b.date) - new Date(a.date));
@@ -892,7 +923,7 @@ async function saveShiftEntryManual() {
     return;
   }
 
-  saveCurrentFormToState();
+  saveCurrentFormToState(true);
   await saveStateToFirebase();
   
   showToast('💾 Shift saved successfully to Cloud & local PC!');
