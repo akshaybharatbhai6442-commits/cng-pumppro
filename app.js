@@ -8,7 +8,11 @@
 let state = {
   staffNames: ['Ramesh', 'Suresh', 'Vikram', 'Anil'],
   nozzles: ['Nozzle 1', 'Nozzle 2', 'Nozzle 3', 'Nozzle 4', 'Nozzle 5', 'Nozzle 6', 'Nozzle 7'],
-  shifts: [] // array of shift records
+  shifts: [], // array of shift records
+  masterCngRate: 82.50,
+  staffAccounts: [
+    { username: 'STAFF', password: '123' }
+  ]
 };
 
 // ── FIREBASE CONFIGURATION (100% Google Cloud) ──────────────────
@@ -49,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initDateToday();
   initFirebase();
   await loadStateFromFirebase();
+  checkUserSession();
   renderSettingsLists();
   loadShiftForSelected();
   updateDashboardStats();
@@ -174,6 +179,14 @@ function sanitizeStateNozzles() {
   }
   if (state.nozzles.length > 7) {
     state.nozzles = state.nozzles.slice(0, 7);
+  }
+  if (state.masterCngRate === undefined) {
+    state.masterCngRate = 82.50;
+  }
+  if (!state.staffAccounts) {
+    state.staffAccounts = [
+      { username: 'STAFF', password: '123' }
+    ];
   }
 }
 
@@ -638,7 +651,10 @@ let isShiftLocked = false;
 
 function setFormFieldsDisabled(disabled) {
   const cngRateInput = document.getElementById('cngRate');
-  if (cngRateInput) cngRateInput.disabled = disabled;
+  const role = sessionStorage.getItem('cng_user_role');
+  if (cngRateInput) {
+    cngRateInput.disabled = disabled || (role !== 'admin');
+  }
   
   const remarksInput = document.getElementById('shiftRemarks');
   if (remarksInput) remarksInput.disabled = disabled;
@@ -667,15 +683,17 @@ function setFormFieldsDisabled(disabled) {
 }
 
 function unlockShiftPrompt() {
-  const pw = prompt("Enter Password to edit this saved shift:");
-  if (pw === 'PRANAV@6442') {
+  const role = sessionStorage.getItem('cng_user_role');
+  if (role !== 'admin') {
+    showToast('Only Admins can unlock shifts!', true);
+    return;
+  }
+  if (confirm("Are you sure you want to unlock this shift for editing?")) {
     isShiftLocked = false;
     setFormFieldsDisabled(false);
     document.getElementById('btnUnlockShift').style.display = 'none';
     document.getElementById('btnSaveShift').style.display = 'block';
     showToast('Shift Unlocked successfully!');
-  } else {
-    showToast('Incorrect Password!', true);
   }
 }
 
@@ -689,6 +707,8 @@ function loadShiftForSelected() {
   document.getElementById('shiftRemarks').value = '';
 
   const foundShift = state.shifts.find(s => s.id === shiftId);
+  const role = sessionStorage.getItem('cng_user_role');
+
   if (foundShift) {
     document.getElementById('cngRate').value = foundShift.cngRate.toFixed(2);
     document.getElementById('shiftRemarks').value = foundShift.remarks || '';
@@ -699,16 +719,32 @@ function loadShiftForSelected() {
     // Lock saved shift
     isShiftLocked = true;
     setFormFieldsDisabled(true);
-    document.getElementById('btnUnlockShift').style.display = 'block';
-    document.getElementById('btnSaveShift').style.display = 'none';
+    
+    if (role === 'admin') {
+      document.getElementById('btnUnlockShift').style.display = 'block';
+      document.getElementById('btnSaveShift').style.display = 'none';
+    } else {
+      document.getElementById('btnUnlockShift').style.display = 'none';
+      document.getElementById('btnSaveShift').style.display = 'none';
+    }
     showToast('Existing shift data loaded! Locked.');
   } else {
+    // New shift: prefill master cng rate
+    if (state.masterCngRate !== undefined) {
+      document.getElementById('cngRate').value = state.masterCngRate.toFixed(2);
+    }
+    
     renderNozzlesContainer();
     renderSalesmanEntries();
     
     // Unlock new shift
     isShiftLocked = false;
     setFormFieldsDisabled(false);
+    
+    if (role !== 'admin' && document.getElementById('cngRate')) {
+      document.getElementById('cngRate').disabled = true;
+    }
+    
     document.getElementById('btnUnlockShift').style.display = 'none';
     document.getElementById('btnSaveShift').style.display = 'block';
   }
@@ -865,7 +901,12 @@ async function saveShiftEntryManual() {
   // Lock the shift upon saving
   isShiftLocked = true;
   setFormFieldsDisabled(true);
-  document.getElementById('btnUnlockShift').style.display = 'block';
+  const role = sessionStorage.getItem('cng_user_role');
+  if (role === 'admin') {
+    document.getElementById('btnUnlockShift').style.display = 'block';
+  } else {
+    document.getElementById('btnUnlockShift').style.display = 'none';
+  }
   document.getElementById('btnSaveShift').style.display = 'none';
 
   // Automatically trigger PDF download after 500ms
@@ -875,6 +916,11 @@ async function saveShiftEntryManual() {
 }
 
 async function deleteShift(shiftId) {
+  const role = sessionStorage.getItem('cng_user_role');
+  if (role !== 'admin') {
+    showToast('Only Admins can delete shifts!', true);
+    return;
+  }
   if (confirm('Are you sure you want to delete this shift entry?')) {
     state.shifts = state.shifts.filter(s => s.id !== shiftId);
     await saveStateToFirebase();
@@ -975,7 +1021,7 @@ function updateDashboardStats() {
         <span class="recent-diff ${shiftDiff >= 0 ? 'diff-green' : 'diff-red'}">
           ₹ ${shiftDiff >= 0 ? '+' : ''}${shiftDiff.toFixed(2)}
         </span>
-        <button class="btn-delete-shift" onclick="deleteShift('${shift.id}')">🗑️</button>
+        <button class="btn-delete-shift" onclick="deleteShift('${shift.id}')" style="${sessionStorage.getItem('cng_user_role') === 'admin' ? '' : 'display:none;'}">🗑️</button>
       </div>
     `;
     listEl.appendChild(item);
@@ -1014,6 +1060,30 @@ function renderSettingsLists() {
     nozzleListEl.appendChild(li);
   });
 
+  // Prefill Master Rate
+  if (document.getElementById('masterCngRateInput')) {
+    document.getElementById('masterCngRateInput').value = (state.masterCngRate || 82.50).toFixed(2);
+  }
+
+  // Render staff login accounts
+  const accountsListEl = document.getElementById('settingsStaffAccountsList');
+  if (accountsListEl) {
+    accountsListEl.innerHTML = '';
+    if (!state.staffAccounts || state.staffAccounts.length === 0) {
+      accountsListEl.innerHTML = '<li class="empty-msg" style="padding:10px;">No staff login accounts created yet.</li>';
+    } else {
+      state.staffAccounts.forEach((acc, idx) => {
+        const li = document.createElement('li');
+        li.className = 'settings-item';
+        li.innerHTML = `
+          <span>👤 <strong>${acc.username}</strong> (Pass: ${acc.password})</span>
+          <button class="btn-delete-item" onclick="deleteStaffAccount(${idx})">Remove</button>
+        `;
+        accountsListEl.appendChild(li);
+      });
+    }
+  }
+
   renderShiftAssignments();
 }
 
@@ -1051,6 +1121,11 @@ async function deleteStaffMember(idx) {
 }
 
 async function resetAllState() {
+  const role = sessionStorage.getItem('cng_user_role');
+  if (role !== 'admin') {
+    showToast('Only Admins can reset data!', true);
+    return;
+  }
   const pw = prompt("Enter Password to reset all data:");
   if (pw !== 'PRANAV@6442') {
     showToast('Incorrect Password!', true);
@@ -1060,7 +1135,11 @@ async function resetAllState() {
     state = {
       staffNames: [],
       nozzles: [],
-      shifts: []
+      shifts: [],
+      masterCngRate: 82.50,
+      staffAccounts: [
+        { username: 'STAFF', password: '123' }
+      ]
     };
     await saveStateToFirebase();
     location.reload();
@@ -1636,4 +1715,167 @@ function generate24HourPDF() {
   const filename = `CNG_24h_Report_${dateStr}.pdf`;
   doc.save(filename);
   showToast(`📄 24h PDF downloaded: ${filename}`);
+}
+
+// ── USER AUTHENTICATION & ROLE MANAGEMENT ──────────────────────
+function checkUserSession() {
+  const role = sessionStorage.getItem('cng_user_role');
+  const overlay = document.getElementById('loginOverlay');
+  const appDiv = document.getElementById('app');
+  const userRoleBadge = document.getElementById('userRoleBadge');
+  
+  if (!role) {
+    if (appDiv) appDiv.style.display = 'none';
+    if (overlay) overlay.style.display = 'flex';
+    
+    document.getElementById('loginUsername').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('loginErrorMsg').style.display = 'none';
+  } else {
+    if (overlay) overlay.style.display = 'none';
+    if (appDiv) appDiv.style.display = 'block';
+    
+    if (userRoleBadge) {
+      userRoleBadge.style.display = 'block';
+      userRoleBadge.textContent = role === 'admin' ? '👤 Admin (Logout)' : `👤 ${sessionStorage.getItem('cng_user_username')} (Logout)`;
+    }
+    
+    applyRolePermissions();
+  }
+}
+
+function handleLoginSubmit() {
+  const usernameInput = document.getElementById('loginUsername').value.trim().toUpperCase();
+  const passwordInput = document.getElementById('loginPassword').value.trim();
+  const errorMsg = document.getElementById('loginErrorMsg');
+  
+  if (usernameInput === 'ADMIN' && passwordInput === 'PRANAV@6442') {
+    sessionStorage.setItem('cng_user_role', 'admin');
+    sessionStorage.setItem('cng_user_username', 'ADMIN');
+    checkUserSession();
+    showToast('Welcome, Administrator!');
+    return;
+  }
+  
+  if (state.staffAccounts) {
+    const foundStaff = state.staffAccounts.find(acc => acc.username.toUpperCase() === usernameInput && acc.password === passwordInput);
+    if (foundStaff) {
+      sessionStorage.setItem('cng_user_role', 'staff');
+      sessionStorage.setItem('cng_user_username', foundStaff.username);
+      checkUserSession();
+      showToast(`Welcome, ${foundStaff.username}!`);
+      return;
+    }
+  }
+  
+  if (errorMsg) {
+    errorMsg.style.display = 'block';
+    errorMsg.textContent = '❌ Invalid Username or Password!';
+  }
+}
+
+function logoutUser() {
+  if (confirm('Are you sure you want to logout?')) {
+    sessionStorage.removeItem('cng_user_role');
+    sessionStorage.removeItem('cng_user_username');
+    checkUserSession();
+  }
+}
+
+function applyRolePermissions() {
+  const role = sessionStorage.getItem('cng_user_role');
+  
+  const navDash = document.getElementById('nav-dashboard');
+  const navSettings = document.getElementById('nav-settings');
+  const navShiftEntry = document.getElementById('nav-shift-entry');
+  
+  const cngRateInput = document.getElementById('cngRate');
+  
+  if (role === 'admin') {
+    if (navDash) navDash.style.display = 'flex';
+    if (navSettings) navSettings.style.display = 'flex';
+    
+    if (cngRateInput) cngRateInput.disabled = false;
+    
+    const currentActive = document.querySelector('.page.active');
+    if (!currentActive || currentActive.id === 'page-shift-entry') {
+      showPage('dashboard', navDash);
+    }
+  } else {
+    if (navDash) navDash.style.display = 'none';
+    if (navSettings) navSettings.style.display = 'none';
+    
+    if (cngRateInput) {
+      cngRateInput.disabled = true;
+      if (state.masterCngRate !== undefined) {
+        cngRateInput.value = state.masterCngRate.toFixed(2);
+      }
+    }
+    
+    showPage('shift-entry', navShiftEntry);
+  }
+  
+  recalculateAll();
+}
+
+// ── MASTER RATE & USER ACCOUNTS (Admin only Settings) ───────────
+async function saveMasterCngRate() {
+  const val = parseFloat(document.getElementById('masterCngRateInput').value) || 0;
+  if (val <= 0) {
+    showToast('Please enter a valid CNG rate!', true);
+    return;
+  }
+  state.masterCngRate = val;
+  await saveStateToFirebase();
+  showToast(`Master CNG rate set to: ₹ ${val.toFixed(2)}`);
+  
+  const cngRateInput = document.getElementById('cngRate');
+  const role = sessionStorage.getItem('cng_user_role');
+  if (cngRateInput && (role === 'admin' || !cngRateInput.disabled)) {
+    cngRateInput.value = val.toFixed(2);
+    markDirty();
+  }
+}
+
+async function addStaffAccount() {
+  const username = document.getElementById('newStaffUsername').value.trim();
+  const password = document.getElementById('newStaffPassword').value.trim();
+  
+  if (!username || !password) {
+    showToast('Please enter both Username and Password!', true);
+    return;
+  }
+  
+  if (username.toUpperCase() === 'ADMIN') {
+    showToast('Cannot create account with username ADMIN!', true);
+    return;
+  }
+  
+  if (!state.staffAccounts) {
+    state.staffAccounts = [];
+  }
+  
+  const exists = state.staffAccounts.some(acc => acc.username.toUpperCase() === username.toUpperCase());
+  if (exists) {
+    showToast('Username already exists!', true);
+    return;
+  }
+  
+  state.staffAccounts.push({ username, password });
+  
+  document.getElementById('newStaffUsername').value = '';
+  document.getElementById('newStaffPassword').value = '';
+  
+  await saveStateToFirebase();
+  renderSettingsLists();
+  showToast('Staff Login Account created!');
+}
+
+async function deleteStaffAccount(idx) {
+  if (confirm(`Remove login account for ${state.staffAccounts[idx].username}?`)) {
+    state.staffAccounts.splice(idx, 1);
+    await saveStateToFirebase();
+    renderSettingsLists();
+    showToast('Staff account removed.');
+  }
 }
